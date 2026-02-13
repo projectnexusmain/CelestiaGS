@@ -129,15 +129,29 @@ The following offsets are used in the Celestia codebase (likely targeting Fortni
 
 **Note:** These offsets are version-specific. You **must** find the correct offsets for your target game version using the methods described above.
 
-## Compatibility Check
+## Finding Offsets for Specific Versions (e.g., 12.41)
 
-**Can I use these specific offsets in a Chapter 2 Season 2 (v12.xx) GameServer?**
+To implement this on a version different from Celestia (like 12.41), follow these reverse engineering steps:
 
-**NO.** The memory offsets (addresses) listed above (`0x2a286d0` and `0x30d976c`) are specific to the exact version of the Fortnite executable (binary) that the Celestia codebase targets (likely v13.40).
+### 1. Finding `SendComplexCustomStatEvent` (The Hook Target)
+*   **Static Analysis (IDA Pro / Ghidra):**
+    *   Open your game binary (e.g., 12.41 Shipping executable) in IDA/Ghidra.
+    *   Search for the string **"ComplexCustom"** or **"SendComplexCustomStatEvent"** in the Strings window.
+    *   Find cross-references (Xrefs) to this string. It is often used as a parameter name or within the function itself for logging.
+    *   If you find a function that takes parameters matching the prototype (Manager, Object, Tags, Tags...), that is your target.
+    *   **Alternate Method:** Look for `UFortQuestManager` in the string list, find the class vtable (Virtual Function Table), and look for a function that seems to handle stat events.
 
-*   **Different Binaries:** Every time the game is compiled (even for small updates), functions shift around in memory. An offset valid for v13.40 will almost certainly point to garbage or a different function in v12.xx.
-*   **The Technique Works:** While the *offsets* are wrong, the **methodology** described in this guide works for almost all Fortnite versions (Chapter 1 and 2). You simply need to repeat "Step 2: Finding the POI Return Address" on your C2S2 binary.
-*   **Structure Changes:** Be aware that class structures (like `UFortQuestManager`) might have minor differences between seasons. Always verify your SDK/struct definitions against your specific game version.
+### 2. Finding the POI Return Address (The Magic Number)
+*   **Dynamic Analysis (Runtime Logging):**
+    *   Once you have hooked `SendComplexCustomStatEvent` (Step 1), add logging to it:
+        ```cpp
+        // Pseudo-code
+        Log("SendComplexCustomStatEvent called! Return Address Offset: 0x%X", _ReturnAddress() - BaseAddress);
+        ```
+    *   Launch the game and load into a match.
+    *   **Trigger the Event:** Walk into a specific Named Location (POI) that you know triggers a discovery event (e.g., "The Shark", "The Agency").
+    *   **Check Logs:** Look at your log file. The offset that appears exactly when you entered the POI is your new "Magic Number".
+    *   Use this new offset in your `if (_ReturnAddress() == ...)` check.
 
 ## Summary Checklist
 
