@@ -113,10 +113,21 @@ You need a function that iterates through the game's quest data and checks if th
     *   If matched, verify if it's a "Once Only" reward (like discovering a named location for the first time).
     *   Call `GiveAccolade` (or your equivalent) to grant XP.
 
+## Reference Implementation Details (Celestia)
+
+The following offsets are used in the Celestia codebase (likely targeting Fortnite Season 13/v13.40):
+
+*   **`SendComplexCustomStatEvent` Hook Offset:** `0x2a286d0`
+    *   Found in `XP.h`: `Utils::Hook(ImageBase + 0x2a286d0, SendComplexCustomStatEvent, SendComplexCustomStatEventOG);`
+*   **POI Caller Return Address:** `0x30d976c`
+    *   Found in `XP.h`: `if (__int64(_ReturnAddress()) == ImageBase + 0x30d976c)`
+
+**Note:** These offsets are version-specific. You **must** find the correct offsets for your target game version using the methods described above.
+
 ## Summary Checklist
 
 1.  [ ] Locate `SendComplexCustomStatEvent` in your GS binary.
-2.  [ ] Hook it.
+2.  [ ] Hook it using a library like MinHook (or `Utils::Hook` if available).
 3.  [ ] Log `_ReturnAddress()` and walk into a POI to find the specific caller offset.
-4.  [ ] Implement the conditional check inside the hook.
+4.  [ ] Implement the conditional check inside the hook using the found offset.
 5.  [ ] Copy/Adapt the `SendStatEvent` logic to check against `AthenaObjectiveStatXPTable`.
