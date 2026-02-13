@@ -117,10 +117,15 @@ You need a function that iterates through the game's quest data and checks if th
 
 The following offsets are used in the Celestia codebase (likely targeting Fortnite Season 13/v13.40):
 
-*   **`SendComplexCustomStatEvent` Hook Offset:** `0x2a286d0`
-    *   Found in `XP.h`: `Utils::Hook(ImageBase + 0x2a286d0, SendComplexCustomStatEvent, SendComplexCustomStatEventOG);`
-*   **POI Caller Return Address:** `0x30d976c`
-    *   Found in `XP.h`: `if (__int64(_ReturnAddress()) == ImageBase + 0x30d976c)`
+*   **OFFSET 1: The Main Event Function (Quests)**
+    *   **Offset:** `0x2a286d0`
+    *   **What it is:** The address of the `SendComplexCustomStatEvent` function itself.
+    *   **Usage:** You hook this function to intercept **ALL** complex events (e.g., Opening Chests, Ammo Boxes, *and* Discovering POIs). This is essential for the entire Quest system.
+
+*   **OFFSET 2: The Caller Check (POIs)**
+    *   **Offset:** `0x30d976c`
+    *   **What it is:** The return address (the location in code that *called* the function).
+    *   **Usage:** This specific address tells you that the event was triggered by the **POI Discovery** logic in the game engine (specifically when overlapping an `AFortPoiVolume`). You check `_ReturnAddress() == ImageBase + 0x30d976c` inside your hook to distinguish a "New Location" event from a generic "Open Chest" event.
 
 **Note:** These offsets are version-specific. You **must** find the correct offsets for your target game version using the methods described above.
 
