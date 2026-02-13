@@ -124,6 +124,16 @@ The following offsets are used in the Celestia codebase (likely targeting Fortni
 
 **Note:** These offsets are version-specific. You **must** find the correct offsets for your target game version using the methods described above.
 
+## Compatibility Check
+
+**Can I use these specific offsets in a Chapter 2 Season 2 (v12.xx) GameServer?**
+
+**NO.** The memory offsets (addresses) listed above (`0x2a286d0` and `0x30d976c`) are specific to the exact version of the Fortnite executable (binary) that the Celestia codebase targets (likely v13.40).
+
+*   **Different Binaries:** Every time the game is compiled (even for small updates), functions shift around in memory. An offset valid for v13.40 will almost certainly point to garbage or a different function in v12.xx.
+*   **The Technique Works:** While the *offsets* are wrong, the **methodology** described in this guide works for almost all Fortnite versions (Chapter 1 and 2). You simply need to repeat "Step 2: Finding the POI Return Address" on your C2S2 binary.
+*   **Structure Changes:** Be aware that class structures (like `UFortQuestManager`) might have minor differences between seasons. Always verify your SDK/struct definitions against your specific game version.
+
 ## Summary Checklist
 
 1.  [ ] Locate `SendComplexCustomStatEvent` in your GS binary.
