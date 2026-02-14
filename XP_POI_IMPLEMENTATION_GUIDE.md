@@ -178,6 +178,23 @@ To avoid doing this manually for every version, creating a **Pattern Signature**
 *   **Plugins:** You might not have access to plugins like "SigMaker". You will need to manually copy bytes from the "Hex View" as described in "Part B" above.
 *   **Decompiler:** IDA Free (7.0+) includes a cloud decompiler for x64, which is sufficient for reading the C-like pseudocode to verify the function signature.
 
+### Troubleshooting: IDA "Messy Numbers" (Missing Code)
+
+If you see weird numbers, raw bytes, or "unexplored" data instead of readable assembly code or C-like pseudocode, try these fixes:
+
+1.  **Switch to Decompiler (F5):**
+    *   IDA defaults to **Graph View** (Assembly logic). To see the C-like "readable" code, press **F5**.
+    *   *Note:* This requires the Cloud Decompiler to be enabled (default in IDA Free 7.0+).
+
+2.  **Define the Function (P):**
+    *   If F5 doesn't work, IDA likely doesn't know that the bytes you are looking at are a function.
+    *   Click on the very first line/byte of the code block.
+    *   Press **P** on your keyboard to "Create Function". IDA will attempt to analyze the bytes and turn them into a proper function.
+    *   Try pressing **F5** again after doing this.
+
+3.  **Switch Views (Spacebar):**
+    *   If you are stuck in a confusing node graph and want to see the linear assembly instructions, press **Spacebar**. This toggles between "Graph View" and "Text View".
+
 ## Detailed Ghidra Tutorial
 
 This tutorial assumes you have Ghidra installed and have analyzed your Fortnite game binary.
