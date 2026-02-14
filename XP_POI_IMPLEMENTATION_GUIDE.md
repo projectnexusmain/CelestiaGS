@@ -178,6 +178,41 @@ To avoid doing this manually for every version, creating a **Pattern Signature**
 *   **Plugins:** You might not have access to plugins like "SigMaker". You will need to manually copy bytes from the "Hex View" as described in "Part B" above.
 *   **Decompiler:** IDA Free (7.0+) includes a cloud decompiler for x64, which is sufficient for reading the C-like pseudocode to verify the function signature.
 
+## Detailed Ghidra Tutorial
+
+This tutorial assumes you have Ghidra installed and have analyzed your Fortnite game binary.
+
+### Part A: Locating `SendComplexCustomStatEvent`
+
+1.  **Open Defined Strings:**
+    *   Go to `Window` -> `Defined Strings`.
+    *   This opens a list of all strings found in the binary.
+2.  **Search for Key Strings:**
+    *   In the "Filter" box at the bottom of the Defined Strings window, type **"ComplexCustom"**.
+    *   You should see a string entry appearing in the list.
+3.  **Find References (Xrefs):**
+    *   Right-click on the string entry in the list.
+    *   Select `References` -> `Show References to Address` (or highlight it and check the "References" section in the Listing view).
+    *   You will see a list of locations in the code where this string is used.
+4.  **Navigate to Code:**
+    *   Double-click on one of the references (usually in a function labeled `FUN_...`).
+    *   This will take you to the Listing view (Assembly) and Decompile view (C-like code).
+5.  **Analyze the Function:**
+    *   In the Decompile view, you will see `ComplexCustom` being used (likely in an `if` or `switch` block).
+    *   Look for the function call happening nearby or the function itself containing this logic.
+    *   Ghidra might verify the signature automatically if you have RTTI/Symbols, otherwise look for: `void FUNC(longlong param_1, longlong param_2, ...)` where `param_1` is likely the QuestManager.
+
+### Part B: Making it "Find All" (Signature Scanning)
+
+1.  **Go to Function Start:**
+    *   In the Listing view, scroll up to the very start of the function (look for the function label `FUN_xxxx`).
+2.  **Select Bytes:**
+    *   Click and drag to select the first 10-20 bytes (instructions) of the function in the Listing view.
+3.  **Copy Bytes:**
+    *   Right-click on the selection.
+    *   Select `Copy Special` -> `Byte String (No Space)`.
+    *   *Note:* Ghidra copies the exact bytes. You still need to manually identify dynamic parts (addresses/offsets) and replace them with wildcards (`?`) when creating your signature code, similar to the IDA method.
+
 ## Summary Checklist
 
 1.  [ ] Locate `SendComplexCustomStatEvent` in your GS binary.
