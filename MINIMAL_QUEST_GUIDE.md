@@ -91,6 +91,74 @@ void ServerAttemptInteract_Hook(UFortControllerComponent_Interaction* Comp, AAct
 }
 ```
 
+## Level 2: Specific Battle Pass Challenges
+
+To implement specific challenges like **"Search Chests at Salty Springs"** or **"Eliminate Players with a Shotgun"**, you need to check **Tags**.
+
+### Example A: "Search Chests at Salty Springs"
+
+Modify your `ServerAttemptInteract` hook to check the location.
+
+```cpp
+// ... Inside ServerAttemptInteract_Hook ...
+
+if (ReceivingActor->IsA(ChestClass)) {
+
+    // 1. Get Tags for the location where the Chest is
+    FGameplayTagContainer LocationTags;
+    auto GS = Cast<AFortGameStateAthena>(GetWorld()->GameState);
+
+    if (GS) {
+        LocationTags = GS->GetPoiGridTagsForLocation(ReceivingActor->GetActorLocation());
+    }
+
+    // 2. Define the Target Tag (Salty Springs)
+    // Note: You can find these tags in FName dumps or by logging 'LocationTags' to console.
+    static FGameplayTag SaltyTag = UGameplayTagsManager::Get().RequestGameplayTag(FName("Athena.Location.POI.SaltySprings"));
+
+    // 3. Check Condition
+    if (LocationTags.HasTag(SaltyTag)) {
+        // PLAYER IS IN SALTY SPRINGS!
+        // Grant "Search Chests in Salty" Reward
+        PC->XPComponent->MatchXp += 5000; // Big XP reward
+        Utils::Log("Completed: Search Chests at Salty Springs!");
+    }
+}
+```
+
+### Example B: "Eliminate Players with a Shotgun"
+
+Modify your `ClientOnPawnDied` hook to check the weapon.
+
+```cpp
+// ... Inside ClientOnPawnDied_Hook ...
+
+if (KillerPS && KillerPawn) {
+
+    // 1. Get the Weapon used to kill
+    // DeathReport.DamageCauser is usually the Weapon or Projectile
+    auto WeaponDef = DeathReport.WeaponUsed; // Assuming struct has this, or check KillerPawn->CurrentWeapon
+
+    if (WeaponDef) {
+        // 2. Check for Shotgun Tag
+        static FGameplayTag ShotgunTag = UGameplayTagsManager::Get().RequestGameplayTag(FName("Weapon.Category.Shotgun"));
+
+        if (WeaponDef->GameplayTags.HasTag(ShotgunTag)) {
+            // SHOTGUN KILL!
+            PC->XPComponent->MatchXp += 1000;
+            Utils::Log("Completed: Shotgun Elimination!");
+        }
+    }
+}
+```
+
+### Note on Progress Tracking (e.g., "0/7 Chests")
+
+In this **Minimal System**, tracking progress (like "Search 7 Chests") is difficult because you have to manually store variables for every player (e.g., `int ChestsSearchedInSalty`).
+
+*   **Easy Way:** Just give XP *every time* (e.g., "500 XP per Chest in Salty").
+*   **Hard Way:** Add a `Map<PlayerUniqueId, int> SaltyChestCount` to your code. Increment it. If it hits 7, give the big reward.
+
 ## Summary: Minimal vs. Full System
 
 | Feature | Minimal Approach (This Guide) | Full System (XP.h) |
