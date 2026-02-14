@@ -28,6 +28,39 @@ void SendComplexCustomStatEvent(
 );
 ```
 
+## Detailed IDA Pro Tutorial: Finding the Function
+
+This tutorial assumes you have IDA Pro installed and have loaded your Fortnite game binary (e.g., `FortniteClient-Win64-Shipping.exe`).
+
+### Part A: Locating `SendComplexCustomStatEvent`
+
+1.  **Open Strings View:**
+    *   Go to `View` -> `Open subviews` -> `Strings` (or press `Shift + F12`).
+2.  **Search for Key Strings:**
+    *   Press `Ctrl + F` and search for **"ComplexCustom"**.
+    *   *Why?* The enum value `EFortQuestObjectiveStatEvent::ComplexCustom` is often converted to a string or used in logging near where the event is processed.
+3.  **Follow the Reference:**
+    *   Double-click the "ComplexCustom" string to jump to its location in the `.rdata` section.
+    *   Click on the string name (e.g., `aComplexcustom`) to highlight it.
+    *   Press `X` (or right-click -> Jump to xref) to see code that references this string.
+4.  **Analyze the Code:**
+    *   You will likely land in a function that looks like a giant `switch` statement (handling different event types like `Kill`, `Damage`, `ComplexCustom`).
+    *   This function *is* (or calls) the event handler.
+    *   Look for a function call that takes `UFortQuestManager` (often `this` or `RCX`) as the first argument.
+    *   **Verification:** Check if the function signature roughly matches: `(Manager, Object, Tags, Tags, bool, bool, int)`.
+
+### Part B: Making it "Find All" (Signature Scanning)
+
+To avoid doing this manually for every version, creating a **Pattern Signature** is best.
+
+1.  **Select the Start of the Function:** Go to the very beginning of the `SendComplexCustomStatEvent` function in IDA (press `P` to ensure IDA recognizes it as a function).
+2.  **Generate Signature:**
+    *   If you have a plugin like "SigMaker", use "Create Function Pattern".
+    *   If not, look at the hex bytes view. Pick the first 10-20 bytes.
+    *   Replace any bytes that change (offsets, addresses) with `?` (wildcards).
+    *   *Example:* `48 89 5C 24 ? 48 89 74 24 ? 57 48 83 EC 20`
+3.  **Use in Code:** Use this signature in your GS loader to automatically find the function address at runtime.
+
 ## Step 2: Finding the POI Return Address
 
 The `SendComplexCustomStatEvent` function is called for *many* things. To specifically detect "POI Discovery", you need to filter these calls. The Celestia codebase does this by checking the **return address** (`_ReturnAddress()`).
@@ -35,30 +68,34 @@ The `SendComplexCustomStatEvent` function is called for *many* things. To specif
 ### The Logic:
 The game engine has a specific function (likely inside `AFortPoiVolume` logic or a related delegate) that calls `SendComplexCustomStatEvent` specifically when a player enters a new POI.
 
-### How to find the specific address:
-1.  **Hook the function:** Implement a hook for `SendComplexCustomStatEvent`.
-2.  **Log Return Addresses:** Inside your hook, log the return address for every call.
+### Finding the Magic Number (Return Address)
+
+**Method 1: Dynamic Analysis (Recommended & Easiest)**
+This is the "Find All" method for the return address because it requires zero reversing skill, just hooking.
+
+1.  **Hook the Function:** Apply your hook to `SendComplexCustomStatEvent` (found in Step 1).
+2.  **Add Logging:**
     ```cpp
-    // Inside your hook
     void Hooked_SendComplexCustomStatEvent(...) {
-        uintptr_t caller = (uintptr_t)_ReturnAddress() - (uintptr_t)GetModuleHandle(NULL);
-        Log("SendComplexCustomStatEvent called from Offset: 0x%llX", caller);
+        // Calculate offset from Base Address
+        uintptr_t callerOffset = (uintptr_t)_ReturnAddress() - (uintptr_t)GetModuleHandle(NULL);
+
+        // Log it clearly
+        Log("[EVENT] SendComplexCustomStatEvent called from Offset: 0x%llX", callerOffset);
 
         return Original_SendComplexCustomStatEvent(...);
     }
     ```
-3.  **Trigger the Event:** Go in-game and walk into a named POI (e.g., "Pleasant Park") that you haven't discovered yet (or reset your profile so it's undiscovered).
-4.  **Identify the Offset:** The offset that appears in your log at the exact moment the "New Location Discovered" UI would normally appear is your magic number.
+3.  **Run the Game:** Launch your server and game client.
+4.  **Perform the Action:** Walk into a named POI (e.g., Pleasant Park).
+5.  **Check the Log:** You will see a log entry appear instantly. That offset (e.g., `0x30d976c`) is your POI Return Address.
 
-**In Celestia (`XP.h`), this check looks like:**
-```cpp
-// ImageBase + 0x30d976c is the specific call site for POI discovery in this version
-if (__int64(_ReturnAddress()) == ImageBase + 0x30d976c)
-{
-    // It's a POI event! Process it as "ComplexCustom"
-    SendStatEvent(..., EFortQuestObjectiveStatEvent::ComplexCustom);
-}
-```
+**Method 2: Static Analysis (Advanced)**
+If you *must* find it without running the game:
+1.  Search for **"PoiVolume"** or **"AFortPoiVolume"** strings in IDA.
+2.  Find VTables or functions related to `AFortPoiVolume::OnOverlap` or `Enter`.
+3.  Look for a call *inside* those functions that jumps to your `SendComplexCustomStatEvent` address.
+4.  The address of the instruction *immediately following* that call is your Return Address.
 
 ## Step 3: Implementing the Hook
 
@@ -89,9 +126,7 @@ void SendComplexCustomStatEvent_Hook(
     }
     else
     {
-        // Optional: Handle other generic events or force a default behavior
-        // Celestia forces a generic event here for non-POI calls:
-        // MyQuestSystem::ProcessEvent(..., EFortQuestObjectiveStatEvent::ComplexCustom);
+        // Optional: Handle other generic events
     }
 
     // 3. Call the original function to let the game do its standard processing
@@ -129,29 +164,15 @@ The following offsets are used in the Celestia codebase (likely targeting Fortni
 
 **Note:** These offsets are version-specific. You **must** find the correct offsets for your target game version using the methods described above.
 
-## Finding Offsets for Specific Versions (e.g., 12.41)
+## Compatibility Check
 
-To implement this on a version different from Celestia (like 12.41), follow these reverse engineering steps:
+**Can I use these specific offsets in a Chapter 2 Season 2 (v12.xx) GameServer?**
 
-### 1. Finding `SendComplexCustomStatEvent` (The Hook Target)
-*   **Static Analysis (IDA Pro / Ghidra):**
-    *   Open your game binary (e.g., 12.41 Shipping executable) in IDA/Ghidra.
-    *   Search for the string **"ComplexCustom"** or **"SendComplexCustomStatEvent"** in the Strings window.
-    *   Find cross-references (Xrefs) to this string. It is often used as a parameter name or within the function itself for logging.
-    *   If you find a function that takes parameters matching the prototype (Manager, Object, Tags, Tags...), that is your target.
-    *   **Alternate Method:** Look for `UFortQuestManager` in the string list, find the class vtable (Virtual Function Table), and look for a function that seems to handle stat events.
+**NO.** The memory offsets (addresses) listed above (`0x2a286d0` and `0x30d976c`) are specific to the exact version of the Fortnite executable (binary) that the Celestia codebase targets (likely v13.40).
 
-### 2. Finding the POI Return Address (The Magic Number)
-*   **Dynamic Analysis (Runtime Logging):**
-    *   Once you have hooked `SendComplexCustomStatEvent` (Step 1), add logging to it:
-        ```cpp
-        // Pseudo-code
-        Log("SendComplexCustomStatEvent called! Return Address Offset: 0x%X", _ReturnAddress() - BaseAddress);
-        ```
-    *   Launch the game and load into a match.
-    *   **Trigger the Event:** Walk into a specific Named Location (POI) that you know triggers a discovery event (e.g., "The Shark", "The Agency").
-    *   **Check Logs:** Look at your log file. The offset that appears exactly when you entered the POI is your new "Magic Number".
-    *   Use this new offset in your `if (_ReturnAddress() == ...)` check.
+*   **Different Binaries:** Every time the game is compiled (even for small updates), functions shift around in memory. An offset valid for v13.40 will almost certainly point to garbage or a different function in v12.xx.
+*   **The Technique Works:** While the *offsets* are wrong, the **methodology** described in this guide works for almost all Fortnite versions (Chapter 1 and 2). You simply need to repeat "Step 2: Finding the POI Return Address" on your C2S2 binary.
+*   **Structure Changes:** Be aware that class structures (like `UFortQuestManager`) might have minor differences between seasons. Always verify your SDK/struct definitions against your specific game version.
 
 ## Summary Checklist
 
